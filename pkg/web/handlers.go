@@ -2941,14 +2941,16 @@ func applySettingsUpdate(c *gin.Context, req config.AppSettings) {
 	config.DebugLog("Settings updated successfully (handlers.go)")
 
 	callbackURLChanged := oldSettings.CallbackURL != newSettings.CallbackURL
+	callbackSecretChanged := oldSettings.CallbackSecret != newSettings.CallbackSecret
+	callbackChanged := callbackURLChanged || callbackSecretChanged
 
 	if err := config.ReloadFail2banManager(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reload fail2ban connectors: " + err.Error()})
 		return
 	}
 
-	if callbackURLChanged {
-		config.DebugLog("Callback URL changed, updating action files and reloading fail2ban on all servers")
+	if callbackChanged {
+		config.DebugLog("Callback URL or secret changed, updating action files and reloading fail2ban on all servers")
 
 		if err := fail2ban.GetManager().UpdateActionFiles(c.Request.Context()); err != nil {
 			config.DebugLog("Warning: failed to update some remote action files: %v", err)
@@ -2958,7 +2960,7 @@ func applySettingsUpdate(c *gin.Context, req config.AppSettings) {
 		for _, conn := range connectors {
 			server := conn.Server()
 			if (server.Type == "ssh" || server.Type == "agent") && server.Enabled {
-				config.DebugLog("Reloading fail2ban on %s after callback URL change", server.Name)
+				config.DebugLog("Reloading fail2ban on %s after callback change", server.Name)
 				if err := conn.Reload(c.Request.Context()); err != nil {
 					config.DebugLog("Warning: failed to reload fail2ban on %s after updating action file: %v", server.Name, err)
 				} else {
@@ -2974,7 +2976,7 @@ func applySettingsUpdate(c *gin.Context, req config.AppSettings) {
 					config.DebugLog("Warning: failed to update local action file: %v", err)
 				} else {
 					if conn, err := fail2ban.GetManager().Connector(server.ID); err == nil {
-						config.DebugLog("Reloading local fail2ban after callback URL change")
+						config.DebugLog("Reloading local fail2ban after callback change")
 						if reloadErr := conn.Reload(c.Request.Context()); reloadErr != nil {
 							config.DebugLog("Warning: failed to reload local fail2ban after updating action file: %v", reloadErr)
 						} else {
