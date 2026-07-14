@@ -133,6 +133,14 @@ Common optional variables:
 | `OIDC_SKIP_VERIFY` | `false` | Skips TLS verification toward the provider. Development only. |
 | `OIDC_SKIP_LOGINPAGE` | `false` | Skips the UI login page and redirects to the provider directly |
 
+OIDC role-based access control is optional. When no role variables are set, every authenticated OIDC user keeps the previous full-access behavior.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OIDC_ROLE_CLAIM` | `groups` | Claim containing roles/groups. Dot paths are supported, for example `realm_access.roles` for Keycloak. |
+| `OIDC_ADMIN_ROLES` | empty | Comma-separated OIDC role/group names that grant full admin access. |
+| `OIDC_SUPPORT_ROLES` | empty | Comma-separated OIDC role/group names that grant support access: dashboard/event reads plus manual ban/unban. |
+
 Provider notes:
 
 * **Keycloak**: allow the redirect URI `{BASE_PATH}/auth/callback` (or `/auth/callback` at root) and the post-logout redirect `{BASE_PATH}/auth/login`.

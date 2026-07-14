@@ -149,19 +149,23 @@ type ThreatIntelSettings struct {
 }
 
 type OIDCConfig struct {
-	Enabled       bool     `json:"enabled"`
-	Provider      string   `json:"provider"`
-	IssuerURL     string   `json:"issuerURL"`
-	ClientID      string   `json:"clientID"`
-	ClientSecret  string   `json:"clientSecret"`
-	RedirectURL   string   `json:"redirectURL"`
-	Scopes        []string `json:"scopes"`
-	SessionSecret string   `json:"sessionSecret"`
-	SessionMaxAge int      `json:"sessionMaxAge"`
-	SkipVerify    bool     `json:"skipVerify"`
-	UsernameClaim string   `json:"usernameClaim"`
-	LogoutURL     string   `json:"logoutURL"`
-	SkipLoginPage bool     `json:"skipLoginPage"`
+	Enabled              bool     `json:"enabled"`
+	Provider             string   `json:"provider"`
+	IssuerURL            string   `json:"issuerURL"`
+	ClientID             string   `json:"clientID"`
+	ClientSecret         string   `json:"clientSecret"`
+	RedirectURL          string   `json:"redirectURL"`
+	Scopes               []string `json:"scopes"`
+	SessionSecret        string   `json:"sessionSecret"`
+	SessionMaxAge        int      `json:"sessionMaxAge"`
+	SkipVerify           bool     `json:"skipVerify"`
+	UsernameClaim        string   `json:"usernameClaim"`
+	RoleClaim            string   `json:"roleClaim"`
+	AdminRoles           []string `json:"adminRoles"`
+	SupportRoles         []string `json:"supportRoles"`
+	AuthorizationEnabled bool     `json:"authorizationEnabled"`
+	LogoutURL            string   `json:"logoutURL"`
+	SkipLoginPage        bool     `json:"skipLoginPage"`
 }
 
 func defaultAdvancedActionsConfig() AdvancedActionsConfig {
@@ -1353,6 +1357,21 @@ func GetBindAddressFromEnv() (string, bool) {
 // =========================================================================
 
 // Returns the OIDC configuration from environment. Returns nil if OIDC is not enabled.
+func parseCommaSeparatedEnv(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
 func GetOIDCConfigFromEnv() (*OIDCConfig, error) {
 	enabled := os.Getenv("OIDC_ENABLED")
 	if enabled != "true" && enabled != "1" {
@@ -1433,6 +1452,13 @@ func GetOIDCConfigFromEnv() (*OIDCConfig, error) {
 	if config.UsernameClaim == "" {
 		config.UsernameClaim = "preferred_username"
 	}
+	config.RoleClaim = os.Getenv("OIDC_ROLE_CLAIM")
+	if config.RoleClaim == "" {
+		config.RoleClaim = "groups"
+	}
+	config.AdminRoles = parseCommaSeparatedEnv(os.Getenv("OIDC_ADMIN_ROLES"))
+	config.SupportRoles = parseCommaSeparatedEnv(os.Getenv("OIDC_SUPPORT_ROLES"))
+	config.AuthorizationEnabled = len(config.AdminRoles) > 0 || len(config.SupportRoles) > 0
 	config.LogoutURL = os.Getenv("OIDC_LOGOUT_URL")
 	return config, nil
 }

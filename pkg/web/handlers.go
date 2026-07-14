@@ -1013,6 +1013,18 @@ func parseRetryAfter(value string, fallback time.Duration) time.Duration {
 // Returns all configured Fail2ban servers.
 func ListServersHandler(c *gin.Context) {
 	servers := config.ListServers()
+	if !userHasAdminAccess(c) {
+		for i := range servers {
+			servers[i].Host = ""
+			servers[i].Port = 0
+			servers[i].SocketPath = ""
+			servers[i].ConfigPath = ""
+			servers[i].SSHUser = ""
+			servers[i].SSHKeyPath = ""
+			servers[i].AgentURL = ""
+			servers[i].AgentSecret = ""
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{"servers": servers})
 }
 
@@ -2826,22 +2838,29 @@ func GetSettingsHandler(c *gin.Context) {
 	config.DebugLog("----------------------------")
 	config.DebugLog("GetSettingsHandler called (handlers.go)")
 	s := config.GetSettings()
+	isAdmin := userHasAdminAccess(c)
+	if !isAdmin {
+		s = config.AppSettings{
+			Language:       s.Language,
+			AlertCountries: s.AlertCountries,
+		}
+	}
 
 	envPort, envPortSet := config.GetPortFromEnv()
 	envCallbackURL, envCallbackURLSet := config.GetCallbackURLFromEnv()
 
-	response := appSettingsResponse{
-		AppSettings:        s,
-		PortFromEnv:        envPort,
-		PortEnvSet:         envPortSet,
-		CallbackUrlEnvSet:  envCallbackURLSet,
-		CallbackUrlFromEnv: envCallbackURL,
+	response := appSettingsResponse{AppSettings: s}
+	if isAdmin {
+		response.PortFromEnv = envPort
+		response.PortEnvSet = envPortSet
+		response.CallbackUrlEnvSet = envCallbackURLSet
+		response.CallbackUrlFromEnv = envCallbackURL
 	}
 
-	if envPortSet {
+	if isAdmin && envPortSet {
 		response.Port = envPort
 	}
-	if envCallbackURLSet {
+	if isAdmin && envCallbackURLSet {
 		response.CallbackURL = envCallbackURL
 	}
 
@@ -4362,14 +4381,17 @@ func AuthStatusHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"enabled":       true,
-		"authenticated": true,
-		"skipLoginPage": skipLoginPage,
+		"enabled":              true,
+		"authenticated":        true,
+		"skipLoginPage":        skipLoginPage,
+		"authorizationEnabled": auth.AuthorizationEnabled(),
 		"user": gin.H{
-			"id":       session.UserID,
-			"email":    session.Email,
-			"name":     session.Name,
-			"username": session.Username,
+			"id":          session.UserID,
+			"email":       session.Email,
+			"name":        session.Name,
+			"username":    session.Username,
+			"roles":       session.Roles,
+			"accessLevel": session.AccessLevel,
 		},
 	})
 }
@@ -4388,12 +4410,15 @@ func UserInfoHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"authenticated": true,
+		"authenticated":        true,
+		"authorizationEnabled": auth.AuthorizationEnabled(),
 		"user": gin.H{
-			"id":       session.UserID,
-			"email":    session.Email,
-			"name":     session.Name,
-			"username": session.Username,
+			"id":          session.UserID,
+			"email":       session.Email,
+			"name":        session.Name,
+			"username":    session.Username,
+			"roles":       session.Roles,
+			"accessLevel": session.AccessLevel,
 		},
 	})
 }
