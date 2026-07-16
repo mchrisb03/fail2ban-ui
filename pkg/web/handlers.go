@@ -3398,7 +3398,8 @@ func sendEmail(to, subject, body string, settings config.AppSettings) error {
 		return nil
 	}
 
-	if settings.SMTP.Host == "" || settings.SMTP.Username == "" || settings.SMTP.Password == "" || settings.SMTP.From == "" {
+	needsAuth := settings.SMTP.AuthMethod != "none"
+	if settings.SMTP.Host == "" || settings.SMTP.From == "" || (needsAuth && (settings.SMTP.Username == "" || settings.SMTP.Password == "")) {
 		err := errors.New("SMTP settings are incomplete. Please configure all required fields")
 		log.Printf("❌ sendEmail validation failed: %v (Host: %q, Username: %q, From: %q)", err, settings.SMTP.Host, settings.SMTP.Username, settings.SMTP.From)
 		return err
@@ -4124,10 +4125,13 @@ func TestEmailHandler(c *gin.Context) {
 
 // Returns the SMTP auth mechanism based on authMethod ("auto", "login", "plain", "cram-md5").
 func getSMTPAuth(username, password, authMethod, host string) (smtp.Auth, error) {
+	authMethod = strings.ToLower(strings.TrimSpace(authMethod))
+	if authMethod == "none" {
+		return nil, nil
+	}
 	if username == "" || password == "" {
 		return nil, nil
 	}
-	authMethod = strings.ToLower(strings.TrimSpace(authMethod))
 	if authMethod == "" || authMethod == "auto" {
 		// Auto-detect: prefers LOGIN for Office365/Gmail, falls back to PLAIN (default)
 		authMethod = "login"
@@ -4140,7 +4144,7 @@ func getSMTPAuth(username, password, authMethod, host string) (smtp.Auth, error)
 	case "cram-md5":
 		return smtp.CRAMMD5Auth(username, password), nil
 	default:
-		return nil, fmt.Errorf("unsupported auth method: %s (supported: login, plain, cram-md5)", authMethod)
+		return nil, fmt.Errorf("unsupported auth method: %s (supported: none, login, plain, cram-md5)", authMethod)
 	}
 }
 
@@ -4154,7 +4158,9 @@ func LoginAuth(username, password string) smtp.Auth {
 }
 
 func (a *loginAuth) Start(server *smtp.ServerInfo) (string, []byte, error) {
-	return "LOGIN", []byte(a.username), nil
+	// No initial response; let the server challenge with "Username:" first.
+	// Some SMTP servers reject the non-standard initial-response variant of LOGIN.
+	return "LOGIN", nil, nil
 }
 
 func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {

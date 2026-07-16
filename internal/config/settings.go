@@ -687,11 +687,16 @@ func setDefaultsLocked() {
 	if currentSettings.SMTP.Port == 0 {
 		currentSettings.SMTP.Port = 587
 	}
-	if currentSettings.SMTP.Username == "" {
-		currentSettings.SMTP.Username = "noreply@swissmakers.ch"
-	}
-	if currentSettings.SMTP.Password == "" {
-		currentSettings.SMTP.Password = "password"
+	if currentSettings.SMTP.AuthMethod == "none" {
+		currentSettings.SMTP.Username = ""
+		currentSettings.SMTP.Password = ""
+	} else {
+		if currentSettings.SMTP.Username == "" {
+			currentSettings.SMTP.Username = "noreply@swissmakers.ch"
+		}
+		if currentSettings.SMTP.Password == "" {
+			currentSettings.SMTP.Password = "password"
+		}
 	}
 	if currentSettings.SMTP.From == "" {
 		currentSettings.SMTP.From = "noreply@swissmakers.ch"
