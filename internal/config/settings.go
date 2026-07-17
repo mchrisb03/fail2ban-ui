@@ -482,25 +482,26 @@ func applyServerRecordsLocked(records []storage.ServerRecord) {
 			_ = json.Unmarshal([]byte(rec.TagsJSON), &tags)
 		}
 		server := Fail2banServer{
-			ID:            rec.ID,
-			Name:          rec.Name,
-			Type:          rec.Type,
-			Host:          rec.Host,
-			Port:          rec.Port,
-			SocketPath:    rec.SocketPath,
-			ConfigPath:    rec.ConfigPath,
-			SSHUser:       rec.SSHUser,
-			SSHKeyPath:    rec.SSHKeyPath,
-			AgentURL:      rec.AgentURL,
-			AgentSecret:   rec.AgentSecret,
-			Hostname:      rec.Hostname,
-			Tags:          tags,
-			IsDefault:     rec.IsDefault,
-			Enabled:       rec.Enabled,
-			RestartNeeded: rec.NeedsRestart,
-			CreatedAt:     rec.CreatedAt,
-			UpdatedAt:     rec.UpdatedAt,
-			EnabledSet:    true,
+			ID:                   rec.ID,
+			Name:                 rec.Name,
+			Type:                 rec.Type,
+			Host:                 rec.Host,
+			Port:                 rec.Port,
+			SocketPath:           rec.SocketPath,
+			ConfigPath:           rec.ConfigPath,
+			SSHUser:              rec.SSHUser,
+			SSHKeyPath:           rec.SSHKeyPath,
+			AgentURL:             rec.AgentURL,
+			AgentSecret:          rec.AgentSecret,
+			Hostname:             rec.Hostname,
+			Tags:                 tags,
+			IsDefault:            rec.IsDefault,
+			Enabled:              rec.Enabled,
+			ReverseTunnelEnabled: rec.ReverseTunnelEnabled,
+			RestartNeeded:        rec.NeedsRestart,
+			CreatedAt:            rec.CreatedAt,
+			UpdatedAt:            rec.UpdatedAt,
+			EnabledSet:           true,
 		}
 		servers = append(servers, server)
 	}
@@ -602,24 +603,25 @@ func toServerRecordsLocked() ([]storage.ServerRecord, error) {
 			updatedAt = createdAt
 		}
 		records = append(records, storage.ServerRecord{
-			ID:           srv.ID,
-			Name:         srv.Name,
-			Type:         srv.Type,
-			Host:         srv.Host,
-			Port:         srv.Port,
-			SocketPath:   srv.SocketPath,
-			ConfigPath:   srv.ConfigPath,
-			SSHUser:      srv.SSHUser,
-			SSHKeyPath:   srv.SSHKeyPath,
-			AgentURL:     srv.AgentURL,
-			AgentSecret:  srv.AgentSecret,
-			Hostname:     srv.Hostname,
-			TagsJSON:     string(tagBytes),
-			IsDefault:    srv.IsDefault,
-			Enabled:      srv.Enabled,
-			NeedsRestart: srv.RestartNeeded,
-			CreatedAt:    createdAt,
-			UpdatedAt:    updatedAt,
+			ID:                   srv.ID,
+			Name:                 srv.Name,
+			Type:                 srv.Type,
+			Host:                 srv.Host,
+			Port:                 srv.Port,
+			SocketPath:           srv.SocketPath,
+			ConfigPath:           srv.ConfigPath,
+			SSHUser:              srv.SSHUser,
+			SSHKeyPath:           srv.SSHKeyPath,
+			AgentURL:             srv.AgentURL,
+			AgentSecret:          srv.AgentSecret,
+			Hostname:             srv.Hostname,
+			TagsJSON:             string(tagBytes),
+			IsDefault:            srv.IsDefault,
+			Enabled:              srv.Enabled,
+			ReverseTunnelEnabled: srv.ReverseTunnelEnabled,
+			NeedsRestart:         srv.RestartNeeded,
+			CreatedAt:            createdAt,
+			UpdatedAt:            updatedAt,
 		})
 	}
 	return records, nil
@@ -665,6 +667,10 @@ func setDefaultsLocked() {
 		currentSettings.CallbackSecret = strings.TrimSpace(cbSecret)
 	} else if currentSettings.CallbackSecret == "" {
 		currentSettings.CallbackSecret = generateCallbackSecret()
+	}
+	if debugEnv := os.Getenv("DEBUG"); debugEnv != "" {
+		debugStr := strings.ToLower(strings.TrimSpace(debugEnv))
+		currentSettings.Debug = debugStr == "true" || debugStr == "1" || debugStr == "yes"
 	}
 	if currentSettings.AlertCountries == nil {
 		currentSettings.AlertCountries = []string{"ALL"}

@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,6 +47,7 @@ type SSHConnector struct {
 	fail2banPath string
 	pathCached   bool
 	pathMutex    sync.RWMutex
+	tunnelPort   int
 }
 
 const sshEnsureActionScript = `python3 - <<'PY'
@@ -76,6 +78,22 @@ func NewSSHConnector(server shared.Fail2banServer) (Connector, error) {
 		return nil, fmt.Errorf("sshUser is required for ssh connector")
 	}
 	conn := &SSHConnector{server: server}
+
+	// Parse tunnel port from callback URL when reverse tunnel is enabled
+	if server.ReverseTunnelEnabled {
+		callbackURL := mustProvider().CallbackURL()
+		if parsedURL, err := url.Parse(callbackURL); err == nil && parsedURL.Port() != "" {
+			if p, err := strconv.Atoi(parsedURL.Port()); err == nil && p > 0 && p <= 65535 {
+				conn.tunnelPort = p
+				debugf("Reverse tunnel enabled for server %s, will use -R %d:localhost:%d", server.Name, p, p)
+			}
+		}
+		if conn.tunnelPort == 0 {
+			// Fallback: default to 9999 if we can't parse from callback URL
+			conn.tunnelPort = 9999
+			debugf("Reverse tunnel enabled for server %s, could not parse port from callback URL, defaulting to -R 9999:localhost:9999", server.Name)
+		}
+	}
 
 	// Use a timeout context to prevent hanging if SSH server isn't ready yet
 	// The action file can be ensured later when actually needed
@@ -436,6 +454,21 @@ func (sc *SSHConnector) buildSSHArgs(command []string) []string {
 		"-o", fmt.Sprintf("ControlPath=%s", controlPath),
 		"-o", "ControlPersist=300",
 	)
+
+	// When reverse tunnel is enabled, add the -R flag and persist the master connection forever
+	if sc.tunnelPort > 0 {
+		tunnelArg := fmt.Sprintf("%d:localhost:%d", sc.tunnelPort, sc.tunnelPort)
+		args = append(args, "-R", tunnelArg)
+		// ControlPersist=0 means the master SSH process stays alive indefinitely,
+		// keeping the reverse tunnel up even when no command sessions are active.
+		for i, a := range args {
+			if a == "ControlPersist=300" {
+				args[i] = "ControlPersist=0"
+				break
+			}
+		}
+		debugf("SSH reverse tunnel enabled: -R %s with ControlPersist=0 (indefinite)", tunnelArg)
+	}
 	if sc.server.SSHKeyPath != "" {
 		args = append(args, "-i", sc.server.SSHKeyPath)
 	}

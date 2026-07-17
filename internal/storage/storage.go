@@ -159,24 +159,25 @@ type AppSettingsRecord struct {
 }
 
 type ServerRecord struct {
-	ID           string
-	Name         string
-	Type         string
-	Host         string
-	Port         int
-	SocketPath   string
-	ConfigPath   string
-	SSHUser      string
-	SSHKeyPath   string
-	AgentURL     string
-	AgentSecret  string
-	Hostname     string
-	TagsJSON     string
-	IsDefault    bool
-	Enabled      bool
-	NeedsRestart bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                   string
+	Name                 string
+	Type                 string
+	Host                 string
+	Port                 int
+	SocketPath           string
+	ConfigPath           string
+	SSHUser              string
+	SSHKeyPath           string
+	AgentURL             string
+	AgentSecret          string
+	Hostname             string
+	TagsJSON             string
+	IsDefault            bool
+	Enabled              bool
+	ReverseTunnelEnabled bool
+	NeedsRestart         bool
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 type BanEventRecord struct {

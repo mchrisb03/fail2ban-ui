@@ -1430,6 +1430,15 @@
                     <input type="checkbox" id="serverEnabled" class="h-4 w-4 text-blue-600 border-gray-300 rounded">
                     <label for="serverEnabled" class="ml-2 text-sm text-gray-700" data-i18n="servers.form.enabled">Enable connector</label>
                   </div>
+                  <div data-server-fields="ssh">
+                    <div class="flex items-center">
+                      <input type="checkbox" id="serverReverseTunnel" class="h-4 w-4 text-blue-600 border-gray-300 rounded">
+                      <label for="serverReverseTunnel" class="ml-2 text-sm text-gray-700" data-i18n="servers.form.reverse_tunnel">Enable reverse tunnel for events</label>
+                    </div>
+                    <p class="mt-0.5 ml-6 text-xs text-gray-500" data-i18n="servers.form.reverse_tunnel_help">
+                      Automatically creates a reverse SSH tunnel (-R port:localhost:port) so fail2ban callback events on the remote server can reach this UI server. The tunnel port is derived from the Callback URL setting.
+                    </p>
+                  </div>
                   <input type="hidden" id="serverId">
                   <div class="flex gap-3">
                     <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors" data-i18n="servers.form.submit">Save Server</button>
