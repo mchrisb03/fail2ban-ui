@@ -386,6 +386,8 @@
   "settings.geoip_database_path.description": "Ruta al fitxer de la base de dades MaxMind GeoLite2-Country.",
   "settings.max_log_lines": "Màxim de Línies de Registre",
   "settings.max_log_lines.description": "Nombre màxim de línies de registre per incloure en les notificacions de bloqueig. Les línies més rellevants se seleccionen automàticament.",
+  "settings.event_retention_days": "Retenció d'esdeveniments (dies)",
+  "settings.event_retention_days.description": "Els esdeveniments de bloqueig/desbloqueig més antics s'eliminen automàticament un cop al dia. Estableix 0 per conservar els esdeveniments per sempre (la base de dades creixerà sense límit).",
   "settings.ignore_ips": "IP a Ignorar",
   "settings.ignore_ips.description": "Llista d'adreces IP, màscares CIDR o amfitrions DNS separats per espais. Fail2ban no bloquejarà un amfitrió que coincideixi amb una adreça d'aquesta llista.",
   "settings.ignore_ips_placeholder": "IPs a ignorar, separades per espais",

@@ -57,12 +57,38 @@ func main() {
 		log.Fatalf("failed to initialise fail2ban connectors: %v", err)
 	}
 
-	// Sync remote SSH/agent runtime config, then reload so action/callback and
-	// jail.local changes become active. Local Fail2Ban follows its own lifecycle.
+	// Sync remote SSH/agent runtime config, then reload so action/callback and jail.local changes become active
 	go func() {
 		synced, failed := fail2ban.GetManager().SyncRemoteStartupConfig(context.Background(), 30*time.Second)
 		if synced+failed > 0 {
 			log.Printf("startup remote config sync complete: %d succeeded, %d failed", synced, failed)
+		}
+	}()
+
+	// Prune ban events beyond the configured retention window once at startup and then daily
+	go func() {
+		pruneBanEvents := func() {
+			retentionDays := config.GetSettings().EventRetentionDays
+			if retentionDays <= 0 {
+				return
+			}
+			cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			deleted, err := storage.PruneBanEventsBefore(ctx, cutoff)
+			cancel()
+			if err != nil {
+				log.Printf("warning: failed to prune ban events older than %d days: %v", retentionDays, err)
+				return
+			}
+			if deleted > 0 {
+				log.Printf("Pruned %d ban events older than %d days", deleted, retentionDays)
+			}
+		}
+		pruneBanEvents()
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			pruneBanEvents()
 		}
 	}()
 

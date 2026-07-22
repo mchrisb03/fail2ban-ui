@@ -386,6 +386,8 @@
   "settings.geoip_database_path.description": "MaxMind GeoLite2-Country 数据库文件的路径。",
   "settings.max_log_lines": "最大日志行数",
   "settings.max_log_lines.description": "封禁通知中包含的最大日志行数。系统会自动选择最相关的行。",
+  "settings.event_retention_days": "事件保留期（天）",
+  "settings.event_retention_days.description": "早于此期限的封禁/解封事件将每天自动删除一次。设置为 0 可永久保留事件（数据库将无限增长）。",
   "settings.ignore_ips": "忽略 IP",
   "settings.ignore_ips.description": "空格分隔的 IP 地址、CIDR 掩码或 DNS 主机列表。Fail2ban 不会封禁与此列表中地址匹配的主机。",
   "settings.ignore_ips_placeholder": "要忽略的 IP，用空格分隔",

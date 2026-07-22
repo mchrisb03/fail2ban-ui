@@ -138,6 +138,7 @@ function loadSettings() {
       onGeoIPProviderChange(geoipProvider);
       document.getElementById('geoipDatabasePath').value = data.geoipDatabasePath || '/usr/share/GeoIP/GeoLite2-Country.mmdb';
       document.getElementById('maxLogLines').value = data.maxLogLines || 50;
+      document.getElementById('eventRetentionDays').value = (typeof data.eventRetentionDays === 'number') ? data.eventRetentionDays : 180;
       document.getElementById('banTime').value = data.bantime || '';
       document.getElementById('bantimeRndtime').value = data.bantimeRndtime || '';
       document.getElementById('bantimeMaxtime').value = data.bantimeMaxtime || '';
@@ -195,8 +196,9 @@ function saveSettings(event) {
     authMethod: authMethod,
   };
 
+  const eventRetentionRaw = parseInt(document.getElementById('eventRetentionDays').value, 10);
+  const eventRetentionDays = isNaN(eventRetentionRaw) ? 180 : Math.max(eventRetentionRaw, 0);
   const selectedCountries = Array.from(document.getElementById('alertCountries').selectedOptions).map(opt => opt.value);
-
   const callbackURLInput = document.getElementById('callbackURL');
   let callbackUrl = callbackURLInput.value.trim();
   const currentPort = parseInt(document.getElementById('uiPort').value, 10) || 8080;
@@ -232,6 +234,7 @@ function saveSettings(event) {
     geoipProvider: document.getElementById('geoipProvider').value || 'builtin',
     geoipDatabasePath: document.getElementById('geoipDatabasePath').value || '/usr/share/GeoIP/GeoLite2-Country.mmdb',
     maxLogLines: parseInt(document.getElementById('maxLogLines').value, 10) || 50,
+    eventRetentionDays: eventRetentionDays,
     alertProvider: document.getElementById('alertProvider').value || 'email',
     smtp: smtpSettings,
     webhook: collectWebhookSettings(),

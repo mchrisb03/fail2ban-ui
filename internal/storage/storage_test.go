@@ -240,11 +240,10 @@ func TestListBanEventsFilteredOmitsHeavyFields(t *testing.T) {
 	}
 }
 
-func TestCountRecentBanEventsByJailSupportsLegacyTimestampText(t *testing.T) {
+func TestMigrateLegacyTimestampsNormalizesAndFilters(t *testing.T) {
 	initTestStorage(t)
 
 	ctx := context.Background()
-	since := time.Date(2026, 5, 27, 13, 30, 0, 0, time.UTC)
 	_, err := db.ExecContext(ctx, `
 INSERT INTO ban_events (server_id, server_name, jail, ip, event_type, occurred_at, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -260,11 +259,33 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		t.Fatalf("insert legacy event: %v", err)
 	}
 
+	if err := migrateLegacyTimestamps(ctx); err != nil {
+		t.Fatalf("migrateLegacyTimestamps: %v", err)
+	}
+
+	var occurredAt, createdAt string
+	if err := db.QueryRowContext(ctx, `SELECT occurred_at, created_at FROM ban_events WHERE server_id = 'srv-1'`).Scan(&occurredAt, &createdAt); err != nil {
+		t.Fatalf("select migrated row: %v", err)
+	}
+	want := "2026-05-27T14:27:38.369492374Z"
+	if occurredAt != want || createdAt != want {
+		t.Fatalf("migrated timestamps = %q / %q, want %q", occurredAt, createdAt, want)
+	}
+
+	// The migrated row must now be found by the plain since filter.
+	since := time.Date(2026, 5, 27, 13, 30, 0, 0, time.UTC)
 	got, err := CountRecentBanEventsByJail(ctx, "srv-1", since)
 	if err != nil {
 		t.Fatalf("CountRecentBanEventsByJail: %v", err)
 	}
 	if got["sshd"] != 1 {
 		t.Fatalf("recent ban count=%d want 1", got["sshd"])
+	}
+	got, err = CountRecentBanEventsByJail(ctx, "srv-1", since.Add(2*time.Hour))
+	if err != nil {
+		t.Fatalf("CountRecentBanEventsByJail: %v", err)
+	}
+	if got["sshd"] != 0 {
+		t.Fatalf("recent ban count=%d want 0 for later since", got["sshd"])
 	}
 }

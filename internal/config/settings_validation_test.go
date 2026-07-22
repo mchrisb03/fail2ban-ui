@@ -101,3 +101,26 @@ func TestFail2banActionTemplateRobustness(t *testing.T) {
 		}
 	}
 }
+
+func TestFail2banActionConfigEscapesPercent(t *testing.T) {
+	t.Parallel()
+
+	content := BuildFail2banActionConfig("http://127.0.0.1:9999", "srv-test", "secret")
+	for i := 0; i < len(content); i++ {
+		if content[i] != '%' {
+			continue
+		}
+		if i+1 >= len(content) {
+			t.Fatalf("action config ends with a bare '%%' at offset %d", i)
+		}
+		switch content[i+1] {
+		case '%':
+			i++
+		case '(':
+
+		default:
+			t.Fatalf("action config contains bare '%%' followed by %q at offset %d: %q",
+				content[i+1], i, content[max(0, i-40):min(len(content), i+40)])
+		}
+	}
+}

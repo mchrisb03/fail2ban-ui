@@ -386,6 +386,8 @@
   "settings.geoip_database_path.description": "MaxMind GeoLite2-Countryデータベースファイルへのパス。",
   "settings.max_log_lines": "最大ログ行数",
   "settings.max_log_lines.description": "ブロック通知に含める最大ログ行数。最も関連性の高い行が自動的に選択されます。",
+  "settings.event_retention_days": "イベント保持期間（日数）",
+  "settings.event_retention_days.description": "これより古いブロック/ブロック解除イベントは1日1回自動的に削除されます。0に設定するとイベントを永久に保持します（データベースは無制限に増加します）。",
   "settings.ignore_ips": "無視するIP",
   "settings.ignore_ips.description": "スペース区切りのIPアドレス、CIDRマスク、またはDNSホストのリスト。このリストに一致するホストはFail2banでブロックされません。",
   "settings.ignore_ips_placeholder": "無視するIP（スペース区切り）",

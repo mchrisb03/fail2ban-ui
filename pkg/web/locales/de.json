@@ -386,6 +386,8 @@
   "settings.geoip_database_path.description": "Pfad zur MaxMind GeoLite2-Country-Datenbankdatei.",
   "settings.max_log_lines": "Maximale Log-Zeilen",
   "settings.max_log_lines.description": "Maximale Anzahl von Log-Zeilen, die in Ban-Benachrichtigungen enthalten sein sollen. Die relevantesten Zeilen werden automatisch ausgewählt.",
+  "settings.event_retention_days": "Event-Retention (in Tage)",
+  "settings.event_retention_days.description": "Ban-/Unban-Events, die älter sind, werden einmal täglich automatisch gelöscht. 0 setzen, um Events für immer zu behalten.",
   "settings.ignore_ips": "IP-Adressen ignorieren",
   "settings.ignore_ips.description": "Durch Leerzeichen getrennte Liste von IP-Adressen, CIDR-Masken oder DNS-Hosts. Fail2ban wird keinen Host sperren, der mit einer Adresse in dieser Liste übereinstimmt.",
   "settings.ignore_ips_placeholder": "IP-Adressen, getrennt durch Leerzeichen",

@@ -74,6 +74,7 @@ type AppSettings struct {
 	GeoIPProvider        string                `json:"geoipProvider"`
 	GeoIPDatabasePath    string                `json:"geoipDatabasePath"`
 	MaxLogLines          int                   `json:"maxLogLines"`
+	EventRetentionDays   int                   `json:"eventRetentionDays"`
 	EmailAlertsForBans   bool                  `json:"emailAlertsForBans"`
 	EmailAlertsForUnbans bool                  `json:"emailAlertsForUnbans"`
 	AlertProvider        string                `json:"alertProvider"`
@@ -235,7 +236,7 @@ actionban = /usr/bin/curl__CURL_INSECURE_FLAG__ -X POST __CALLBACK_URL__/api/ban
      -d "$(logpath='<logpath>'; \
            logs="$(tac $logpath 2>/dev/null | grep -a <grepopts> -wF '<ip>')"; \
            [ -z "$logs" ] && logs="$(journalctl --no-pager -r -o cat --since '-1 day' 2>/dev/null | grep -a <grepopts> -wF '<ip>')"; \
-           logs="$(printf '%s' "$logs" | LC_ALL=C tr -cd '\11\12\15\40-\176')"; \
+           logs="$(printf '%%s' "$logs" | LC_ALL=C tr -cd '\11\12\15\40-\176')"; \
            jq -n --arg serverId '__SERVER_ID__' \
                  --arg ip '<ip>' \
                  --arg jail '<name>' \
@@ -441,6 +442,7 @@ func applyAppSettingsRecordLocked(rec storage.AppSettingsRecord) {
 	currentSettings.GeoIPProvider = rec.GeoIPProvider
 	currentSettings.GeoIPDatabasePath = rec.GeoIPDatabasePath
 	currentSettings.MaxLogLines = rec.MaxLogLines
+	currentSettings.EventRetentionDays = rec.EventRetentionDays
 	currentSettings.CallbackSecret = rec.CallbackSecret
 	currentSettings.EmailAlertsForBans = rec.EmailAlertsForBans
 	currentSettings.EmailAlertsForUnbans = rec.EmailAlertsForUnbans
@@ -583,6 +585,7 @@ func toAppSettingsRecordLocked() (storage.AppSettingsRecord, error) {
 		GeoIPProvider:          currentSettings.GeoIPProvider,
 		GeoIPDatabasePath:      currentSettings.GeoIPDatabasePath,
 		MaxLogLines:            currentSettings.MaxLogLines,
+		EventRetentionDays:     currentSettings.EventRetentionDays,
 		AlertProvider:          alertProvider,
 		WebhookJSON:            string(webhookBytes),
 		ElasticsearchJSON:      string(esBytes),
