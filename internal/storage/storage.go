@@ -965,9 +965,13 @@ func CountBanEventsByCountry(ctx context.Context, since time.Time, serverID stri
 		return nil, errors.New("storage not initialised")
 	}
 
+	from := "FROM ban_events"
+	if !since.IsZero() {
+		from = "FROM ban_events INDEXED BY idx_ban_events_occurred_at_ip"
+	}
 	query := `
 SELECT COALESCE(country, '') AS country, COUNT(*)
-FROM ban_events
+` + from + `
 WHERE 1=1`
 	args := []any{}
 
