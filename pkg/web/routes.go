@@ -58,6 +58,9 @@ func RegisterRoutes(r *gin.Engine, hub *Hub) {
 		api.POST("/jails/:jail/unban/:ip", UnbanIPHandler)
 		api.POST("/jails/:jail/ban/:ip", BanIPHandler)
 
+		// Search which jails currently ban this IP -> searches on all servers
+		api.GET("/ips/:ip/search", SearchBannedIPHandler)
+
 		// Internal API calls for jail-filter management (TODO: rename API-call)
 		api.GET("/jails/:jail/config", GetJailFilterConfigHandler)
 		api.POST("/jails/:jail/config", SetJailFilterConfigHandler)
@@ -77,7 +80,6 @@ func RegisterRoutes(r *gin.Engine, hub *Hub) {
 		// Internal API calls for Fail2ban-UI settings
 		api.GET("/settings", GetSettingsHandler)
 		api.POST("/settings", UpdateSettingsHandler)
-		//api.PATCH("/settings", PatchSettingsHandler)
 		api.POST("/settings/test-email", TestEmailHandler)
 		api.POST("/settings/test-webhook", TestWebhookHandler)
 		api.POST("/settings/test-elasticsearch", TestElasticsearchHandler)
