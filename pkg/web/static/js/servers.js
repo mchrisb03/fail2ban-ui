@@ -283,6 +283,9 @@ function setCurrentServer(serverId) {
     clearStoredServerId();
   }
   jailBannedState = {};
+  latestSummary = null;
+  latestSummaryServerId = null;
+  latestServerInsights = null;
   renderServerSelector();
   renderServerSubtitle();
   updateRestartBanner();

@@ -69,6 +69,7 @@ func SetWebSocketHub(hub *Hub) {
 }
 
 type SummaryResponse struct {
+	ServerID         string              `json:"serverId"`
 	Jails            []fail2ban.JailInfo `json:"jails"`
 	JailLocalWarning bool                `json:"jailLocalWarning,omitempty"`
 }
@@ -240,7 +241,8 @@ func SummaryHandler(c *gin.Context) {
 	}
 
 	resp := SummaryResponse{
-		Jails: jailInfos,
+		ServerID: serverID,
+		Jails:    jailInfos,
 	}
 
 	// Checks the jail.local integrity on every summary request to warn the user if not managed by Fail2ban-UI.
@@ -712,49 +714,69 @@ func BanInsightsHandler(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-
-	countriesMap, err := storage.CountBanEventsByCountry(ctx, since, serverID)
-	if err != nil {
-		settings := config.GetSettings()
-		errorMsg := err.Error()
-		if settings.Debug {
-			config.DebugLog("BanInsightsHandler: CountBanEventsByCountry error: %v", err)
-			errorMsg = fmt.Sprintf("CountBanEventsByCountry failed: %v", err)
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errorMsg})
-		return
-	}
-
-	recurring, err := storage.ListRecurringIPStats(ctx, since, minCount, limit, serverID)
-	if err != nil {
-		settings := config.GetSettings()
-		errorMsg := err.Error()
-		if settings.Debug {
-			config.DebugLog("BanInsightsHandler: ListRecurringIPStats error: %v", err)
-			errorMsg = fmt.Sprintf("ListRecurringIPStats failed: %v", err)
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errorMsg})
-		return
-	}
-
-	totalOverall, err := storage.CountBanEvents(ctx, time.Time{}, serverID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	now := time.Now().UTC()
 
-	totalToday, err := storage.CountBanEvents(ctx, now.Add(-24*time.Hour), serverID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// The five queries are independent; run them concurrently.
+	var (
+		countriesMap             map[string]int64
+		recurring                []storage.RecurringIPStat
+		totalOverall, totalToday int64
+		totalWeek                int64
+		countriesErr             error
+		recurringErr             error
+		overallErr               error
+		todayErr                 error
+		weekErr                  error
+		wg                       sync.WaitGroup
+	)
+	wg.Add(5)
+	go func() {
+		defer wg.Done()
+		countriesMap, countriesErr = storage.CountBanEventsByCountry(ctx, since, serverID)
+	}()
+	go func() {
+		defer wg.Done()
+		recurring, recurringErr = storage.ListRecurringIPStats(ctx, since, minCount, limit, serverID)
+	}()
+	go func() {
+		defer wg.Done()
+		totalOverall, overallErr = storage.CountBanEvents(ctx, time.Time{}, serverID)
+	}()
+	go func() {
+		defer wg.Done()
+		totalToday, todayErr = storage.CountBanEvents(ctx, now.Add(-24*time.Hour), serverID)
+	}()
+	go func() {
+		defer wg.Done()
+		totalWeek, weekErr = storage.CountBanEvents(ctx, now.Add(-7*24*time.Hour), serverID)
+	}()
+	wg.Wait()
+
+	if countriesErr != nil {
+		settings := config.GetSettings()
+		errorMsg := countriesErr.Error()
+		if settings.Debug {
+			config.DebugLog("BanInsightsHandler: CountBanEventsByCountry error: %v", countriesErr)
+			errorMsg = fmt.Sprintf("CountBanEventsByCountry failed: %v", countriesErr)
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errorMsg})
 		return
 	}
-
-	totalWeek, err := storage.CountBanEvents(ctx, now.Add(-7*24*time.Hour), serverID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if recurringErr != nil {
+		settings := config.GetSettings()
+		errorMsg := recurringErr.Error()
+		if settings.Debug {
+			config.DebugLog("BanInsightsHandler: ListRecurringIPStats error: %v", recurringErr)
+			errorMsg = fmt.Sprintf("ListRecurringIPStats failed: %v", recurringErr)
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errorMsg})
 		return
+	}
+	for _, err := range []error{overallErr, todayErr, weekErr} {
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	type countryStat struct {
