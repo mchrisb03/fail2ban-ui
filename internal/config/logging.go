@@ -18,17 +18,22 @@ package config
 
 import (
 	"log"
+	"sync/atomic"
 )
 
 // =========================================================================
 //  Debug Logging
 // =========================================================================
 
+var debugEnabled atomic.Bool
+
+func setDebugFlag(enabled bool) {
+	debugEnabled.Store(enabled)
+}
+
 // Prints debug messages if debug mode is enabled.
 func DebugLog(format string, v ...interface{}) {
-	debugEnabled := false
-	debugEnabled = currentSettings.Debug
-	if !debugEnabled {
+	if !debugEnabled.Load() {
 		return
 	}
 	if len(v) > 0 {
