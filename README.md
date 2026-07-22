@@ -35,7 +35,7 @@ The UI runs as a single Go binary, in a container or as a systemd service. Two i
 * **Control path** (blue) - Fail2ban UI manages each Fail2Ban instance through one of three connectors (see below): reading jail status, banning and unbanning, editing configuration, restarting the service.
 * **Event path** (green) - a custom Fail2Ban action on each host posts every ban and unban event back to the UI over HTTP, authenticated by a shared callback secret. The UI stores the event, broadcasts it to connected browsers, and triggers alerts and advanced actions.
 
-[![Architecture-Diagram](docs/diagrams/architecture.drawio.png)](docs/diagrams/architecture.drawio.png)
+[![Architecture-Diagram](docs/diagrams/architecture.drawio.svg)](docs/diagrams/architecture.drawio.svg)
 
 See [docs/architecture.md](docs/architecture.md) for the data-flow description.
 
