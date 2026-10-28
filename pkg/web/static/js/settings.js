@@ -127,6 +127,12 @@ function loadSettings() {
         document.getElementById('smtpInsecureSkipVerify').checked = data.smtp.insecureSkipVerify || false;
         document.getElementById('smtpAuthMethod').value = data.smtp.authMethod || 'auto';
       }
+      // The update* calls above ran while smtpAuthMethod still held the template
+      // default ("auto"), so the auth-specific disabled state was computed for the
+      // wrong method. Re-apply it now that the loaded value is set; otherwise with
+      // authMethod "none" the username/password fields stay enabled, required, and
+      // empty, and the browser blocks the form submit before saveSettings runs.
+      updateAlertFieldsState();
 
       document.getElementById('bantimeIncrement').checked = data.bantimeIncrement || false;
       document.getElementById('defaultJailEnable').checked = data.defaultJailEnable || false;
