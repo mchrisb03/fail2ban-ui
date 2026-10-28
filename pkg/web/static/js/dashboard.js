@@ -599,9 +599,10 @@ function renderDashboard() {
   if (summary && summary.jails && summary.jails.length > 0) {
     ensureBannedTableLoaded();
   }
-  // Re-render replaced the section markup: reload its list when it is expanded.
+  // Re-render replaced the section markup: rebuild its table from the already
+  // loaded state (no refetch, pagination offset untouched, no flicker).
   if (allowedIPState.expanded && document.getElementById('allowedIPJailSelect')) {
-    loadAllowedIPs(false);
+    renderAllowedIPTable();
   }
 }
 
