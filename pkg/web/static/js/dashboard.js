@@ -599,6 +599,10 @@ function renderDashboard() {
   if (summary && summary.jails && summary.jails.length > 0) {
     ensureBannedTableLoaded();
   }
+  // Re-render replaced the section markup: reload its list when it is expanded.
+  if (allowedIPState.expanded && document.getElementById('allowedIPJailSelect')) {
+    loadAllowedIPs(false);
+  }
 }
 
 // =========================================================================
@@ -1159,7 +1163,11 @@ var allowedIPState = {
   jailIps: [],
   globalIps: [],
   jail: '',
-  offset: 0
+  offset: 0,
+  // UI persistence: survives dashboard re-renders (same pattern as manualBlockState)
+  expanded: false,
+  input: '',
+  search: ''
 };
 
 function isJailAllowedIPManagementEnabled() {
@@ -1191,30 +1199,30 @@ function renderAllowedIPSection(enabledJails) {
     + '        <p class="text-xs text-gray-400 mt-1" data-i18n="dashboard.allowed_ip.expand_hint">Click to expand and manage allowed IPs</p>'
     + '      </div>'
     + '      <div class="ml-4">'
-    + '        <i id="allowedIPToggleIcon" class="fas fa-chevron-down text-gray-400 transition-transform"></i>'
+    + '        <i id="allowedIPToggleIcon" class="fas ' + (allowedIPState.expanded ? 'fa-chevron-up' : 'fa-chevron-down') + ' text-gray-400 transition-transform"></i>'
     + '      </div>'
     + '    </div>'
     + '  </div>'
-    + '  <div id="allowedIPContainer" class="hidden" style="margin-top: 35px;">'
+    + '  <div id="allowedIPContainer" class="' + (allowedIPState.expanded ? '' : 'hidden') + '" style="margin-top: 35px;">'
     // Add form
     + '    <div class="mb-4 p-6 border border-gray-200 rounded-lg bg-gray-50">'
     + '      <h4 class="text-sm font-semibold text-gray-700 mb-3" data-i18n="dashboard.allowed_ip.add_title">Add Allowed IP</h4>'
     + '      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">'
     + '        <div>'
     + '          <label for="allowedIPJailSelect" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.allowed_ip.jail_label">Scope</label>'
-    + '          <select id="allowedIPJailSelect" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="onAllowedIPJailChange()">';
+    + '          <select id="allowedIPJailSelect" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="allowedIPState.jail = this.value; onAllowedIPJailChange()">';
   if (showGlobalOption) {
-    html += '            <option value="__global__" data-i18n="dashboard.allowed_ip.jail_global">Global Settings (all jails on all servers)</option>';
+    html += '            <option value="__global__"' + (allowedIPState.jail === '__global__' ? ' selected' : '') + ' data-i18n="dashboard.allowed_ip.jail_global">Global Settings (all jails on all servers)</option>';
   }
   enabledJails.forEach(function(jail) {
-    html += '            <option value="' + escapeHtml(jail.jailName) + '">' + escapeHtml(jail.jailName) + '</option>';
+    html += '            <option value="' + escapeHtml(jail.jailName) + '"' + (allowedIPState.jail === jail.jailName ? ' selected' : '') + '>' + escapeHtml(jail.jailName) + '</option>';
   });
   html += ''
     + '          </select>'
     + '        </div>'
     + '        <div class="relative">'
     + '          <label for="allowedIPInput" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.allowed_ip.address_label">Address / CIDR / Hostname</label>'
-    + '          <input type="text" id="allowedIPInput" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" data-i18n-placeholder="dashboard.allowed_ip.address_placeholder" placeholder="e.g., 10.3.21.0/24, 192.168.1.1, or myhost.local" />'
+    + '          <input type="text" id="allowedIPInput" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" data-i18n-placeholder="dashboard.allowed_ip.address_placeholder" placeholder="e.g., 10.3.21.0/24, 192.168.1.1, or myhost.local" value="' + escapeHtml(allowedIPState.input) + '" oninput="allowedIPState.input = this.value" />'
     + '          <p id="allowedIPError" class="absolute left-0 top-full mt-1 text-sm text-red-600 hidden"></p>'
     + '        </div>'
     + '        <div class="flex items-end">'
@@ -1227,7 +1235,7 @@ function renderAllowedIPSection(enabledJails) {
     + '    </div>'
     // Search and table
     + '    <div class="mb-3">'
-    + '      <input type="text" id="allowedIPSearch" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" data-i18n-placeholder="dashboard.allowed_ip.search_placeholder" placeholder="Search by address..." oninput="searchAllowedIPs()" />'
+    + '      <input type="text" id="allowedIPSearch" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" data-i18n-placeholder="dashboard.allowed_ip.search_placeholder" placeholder="Search by address..." value="' + escapeHtml(allowedIPState.search) + '" oninput="allowedIPState.search = this.value; searchAllowedIPs()" />'
     + '    </div>'
     + '    <div id="allowedIPTableContainer" class="overflow-x-auto">'
     + '      <p class="text-sm text-gray-500" data-i18n="dashboard.allowed_ip.loading">Loading allowed IPs...</p>'
@@ -1245,6 +1253,7 @@ function toggleAllowedIPSection() {
   }
   var isHidden = container.classList.contains('hidden');
   if (isHidden) {
+    allowedIPState.expanded = true;
     container.classList.remove('hidden');
     icon.classList.remove('fa-chevron-down');
     icon.classList.add('fa-chevron-up');
@@ -1253,9 +1262,11 @@ function toggleAllowedIPSection() {
     var allowedSelect = document.getElementById('allowedIPJailSelect');
     if (blockSelect && allowedSelect && blockSelect.value) {
       allowedSelect.value = blockSelect.value;
+      allowedIPState.jail = allowedSelect.value;
     }
     loadAllowedIPs(false);
   } else {
+    allowedIPState.expanded = false;
     container.classList.add('hidden');
     icon.classList.remove('fa-chevron-up');
     icon.classList.add('fa-chevron-down');
@@ -1476,6 +1487,7 @@ function renderAllowedIPTable() {
 function onAllowedIPJailChange() {
   allowedIPState.offset = 0;
   allowedIPState.jailIps = [];
+  allowedIPState.search = '';
   var searchEl = document.getElementById('allowedIPSearch');
   if (searchEl) {
     searchEl.value = '';
@@ -1578,6 +1590,7 @@ function addAllowedIP() {
         return;
       }
       ipInput.value = '';
+      allowedIPState.input = '';
       showToast(t('dashboard.allowed_ip.add_success', 'Allowed address added successfully'), 'success');
       console.log('[AllowedIP] Added ' + netmask + ' to jail ' + jail + ' on server ' + (currentServerId || 'unknown'));
       allowedIPState.offset = 0;
@@ -1619,6 +1632,7 @@ function addGlobalAllowedIP(netmask, ipInput, errorEl) {
         return;
       }
       ipInput.value = '';
+      allowedIPState.input = '';
       showToast(t('dashboard.allowed_ip.add_success', 'Allowed address added successfully'), 'success');
       console.log('[AllowedIP] Added ' + netmask + ' to global settings');
       allowedIPState.offset = 0;
