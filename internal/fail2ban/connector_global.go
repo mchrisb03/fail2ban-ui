@@ -19,22 +19,43 @@ package fail2ban
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/swissmakers/fail2ban-ui/internal/shared"
 )
 
 // =========================================================================
-//  Validation
+//  Types
 // =========================================================================
 
-// Ensures an IP/CIDR is well-formed
-func ValidateIP(ip string) error {
-	return shared.ValidateIP(ip)
+type JailInfo struct {
+	JailName      string   `json:"jailName"`
+	TotalBanned   int      `json:"totalBanned"`
+	NewInLastHour int      `json:"newInLastHour"`
+	BannedIPs     []string `json:"bannedIPs"`
+	Enabled       bool     `json:"enabled"`
 }
+
+type JailSummary struct {
+	Jails             []JailInfo
+	JailLocalExists   bool
+	JailLocalManaged  bool
+	ActionFileDrifted bool
+}
+
+type reprScanner struct {
+	in  string
+	pos int
+}
+
+// =========================================================================
+//  Validation
+// =========================================================================
 
 // Inspects fail2ban-client reload output for the markers tha indicate the daemon reloaded but a jail/filter failed to apply
 func checkReloadOutput(output string) error {
@@ -42,7 +63,8 @@ func checkReloadOutput(output string) error {
 	if trimmed == "" || trimmed == "OK" {
 		return nil
 	}
-	if strings.Contains(output, "Errors in jail") || strings.Contains(output, "Unable to read the filter") {
+	if strings.Contains(output, "Errors in jail") || strings.Contains(output, "Unable to read the filter") ||
+		strings.Contains(output, "Have not found any log file") || strings.Contains(output, "Failed during configuration") {
 		return fmt.Errorf("fail2ban reload completed but with errors (output: %s)", trimmed)
 	}
 	return nil
@@ -136,15 +158,7 @@ func truncateForError(s string) string {
 	return s[:limit] + "..."
 }
 
-// Minimal scanner for the subset of Python repr that fail2ban emits
-type reprScanner struct {
-	in  string
-	pos int
-}
-
-func (s *reprScanner) rest() string { return s.in[s.pos:] }
-func (s *reprScanner) done() bool   { return s.pos >= len(s.in) }
-
+func (s *reprScanner) done() bool { return s.pos >= len(s.in) }
 func (s *reprScanner) skipSpace() {
 	for s.pos < len(s.in) && (s.in[s.pos] == ' ' || s.in[s.pos] == '\t' || s.in[s.pos] == '\n' || s.in[s.pos] == '\r') {
 		s.pos++
@@ -265,50 +279,59 @@ func checkPingOutput(out string, err error, label string) error {
 }
 
 // =========================================================================
-//  Types
-// =========================================================================
-
-// A single Fail2ban jail
-type JailInfo struct {
-	JailName      string   `json:"jailName"`
-	TotalBanned   int      `json:"totalBanned"`
-	NewInLastHour int      `json:"newInLastHour"`
-	BannedIPs     []string `json:"bannedIPs"`
-	Enabled       bool     `json:"enabled"`
-}
-
-// Result of one summary fetch
-type JailSummary struct {
-	Jails            []JailInfo
-	JailLocalExists  bool
-	JailLocalManaged bool
-}
-
-// =========================================================================
 //  Service Control
 // =========================================================================
 
-func RestartFail2ban(serverID string) (string, error) {
-	manager := GetManager()
-	var (
-		conn Connector
-		err  error
-	)
-	if serverID != "" {
-		conn, err = manager.Connector(serverID)
-	} else {
-		conn, err = manager.DefaultConnector()
+func validateBanTarget(jail, ip string) error {
+	if err := ValidateJailName(jail); err != nil {
+		return err
 	}
+	return shared.ValidateIP(ip)
+}
+
+type fail2banRunner func(ctx context.Context, args ...string) (string, error)
+
+func pingFail2ban(ctx context.Context, run fail2banRunner, label string) error {
+	out, err := run(ctx, "ping")
+	return checkPingOutput(out, err, label)
+}
+
+var ErrRestartNotResponding = errors.New("Fail2ban accepted the command but is not responding yet")
+
+const restartReadyTimeout = 30 * time.Second
+
+func waitForFail2ban(ctx context.Context, run fail2banRunner, label string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	delay := 250 * time.Millisecond
+	for {
+		err := pingFail2ban(ctx, run, label)
+		if err == nil || ctx.Err() != nil || time.Now().Add(delay).After(deadline) {
+			return err
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return err
+		case <-timer.C:
+		}
+		delay = min(delay*2, 2*time.Second)
+	}
+}
+
+func isIncompleteConfigTree(output string) bool {
+	return strings.Contains(output, "Found no accessible config files for 'fail2ban' under") ||
+		strings.Contains(output, "Found no accessible config files for 'jail' under")
+}
+
+func validateConfig(ctx context.Context, run fail2banRunner, root string) error {
+	out, err := run(ctx, "-c", root, "-t")
 	if err != nil {
-		return "", err
+		if isIncompleteConfigTree(err.Error()) {
+			return fmt.Errorf("configuration validation failed: %s must contain the complete Fail2ban configuration "+
+				"(fail2ban.conf, jail.conf and the stock action.d and filter.d files), not only custom jail, filter and action files: %w", root, err)
+		}
+		return fmt.Errorf("configuration validation failed: %w", err)
 	}
-	if withMode, ok := conn.(interface {
-		RestartWithMode(ctx context.Context) (string, error)
-	}); ok {
-		return withMode.RestartWithMode(context.Background())
-	}
-	if err := conn.Restart(context.Background()); err != nil {
-		return "", err
-	}
-	return "restart", nil
+	return checkReloadOutput(out)
 }

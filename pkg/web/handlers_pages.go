@@ -31,6 +31,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/swissmakers/fail2ban-ui/internal/auth"
 	"github.com/swissmakers/fail2ban-ui/internal/httpx"
+	"github.com/swissmakers/fail2ban-ui/internal/shared"
 	"github.com/swissmakers/fail2ban-ui/internal/version"
 )
 
@@ -49,8 +50,8 @@ type githubReleaseResponse struct {
 
 // Renders the main SPA page with template variables.
 func renderIndexPage(c *gin.Context) {
-	disableExternalIP := os.Getenv("DISABLE_EXTERNAL_IP_LOOKUP") == "true" || os.Getenv("DISABLE_EXTERNAL_IP_LOOKUP") == "1"
-	autoDark := os.Getenv("AUTODARK") == "true" || os.Getenv("AUTODARK") == "1"
+	disableExternalIP := shared.EnvBool("DISABLE_EXTERNAL_IP_LOOKUP")
+	autoDark := shared.EnvBool("AUTODARK")
 	languageOptions := listLocaleOptions()
 
 	oidcEnabled := auth.IsEnabled()
@@ -66,20 +67,18 @@ func renderIndexPage(c *gin.Context) {
 	jailAllowedIPEnabled := jailAllowedIPManagementEnabled()
 	jailAllowedIPMinAccess := jailAllowedIPManagementMinAccess()
 
-	urlPrefix := BasePath()
+	urlPrefix := shared.BasePath()
 
 	c.HTML(http.StatusOK, "index.html", gin.H{
-		"timestamp":              time.Now().Format(time.RFC1123),
-		"version":                time.Now().Unix(),
-		"appVersion":             version.Version,
-		"updateCheckEnabled":     updateCheckEnabled,
-		"disableExternalIP":      disableExternalIP,
-		"autoDark":               autoDark,
-		"languageOptions":        languageOptions,
-		"oidcEnabled":            oidcEnabled,
-		"skipLoginPage":          skipLoginPage,
-		"URLPrefix":              urlPrefix,
-		"jailAllowedIPEnabled":   jailAllowedIPEnabled,
+		"version":            assetVersion(),
+		"appVersion":         version.Version,
+		"updateCheckEnabled": updateCheckEnabled,
+		"disableExternalIP":  disableExternalIP,
+		"autoDark":           autoDark,
+		"languageOptions":    languageOptions,
+		"oidcEnabled":        oidcEnabled,
+		"skipLoginPage":      skipLoginPage,
+		"URLPrefix":          urlPrefix, "jailAllowedIPEnabled": jailAllowedIPEnabled,
 		"jailAllowedIPMinAccess": jailAllowedIPMinAccess,
 	})
 }

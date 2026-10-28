@@ -65,6 +65,16 @@ func validateFail2banDurationField(name, value string) error {
 }
 
 func normalizeAndValidateSettingsRequest(req *config.AppSettings) error {
+	req.CallbackURL = strings.TrimRight(strings.TrimSpace(req.CallbackURL), "/")
+	if req.CallbackURL != "" {
+		if err := shared.ValidateCallbackURL(req.CallbackURL); err != nil {
+			return err
+		}
+	}
+	req.CallbackSecret = strings.TrimSpace(req.CallbackSecret)
+	if err := shared.ValidateCallbackSecret(req.CallbackSecret); err != nil {
+		return err
+	}
 	req.Bantime = strings.ToLower(strings.TrimSpace(req.Bantime))
 	req.Findtime = strings.ToLower(strings.TrimSpace(req.Findtime))
 	req.BantimeRndtime = strings.ToLower(strings.TrimSpace(req.BantimeRndtime))
@@ -88,6 +98,10 @@ func normalizeAndValidateSettingsRequest(req *config.AppSettings) error {
 	}
 	if req.BantimeFactor != "" && !fail2banNumberPattern.MatchString(req.BantimeFactor) {
 		return fmt.Errorf("bantime.factor must be a number, got %q", req.BantimeFactor)
+	}
+
+	if err := normalizeJailDefaults(req); err != nil {
+		return err
 	}
 
 	req.AlertProvider = strings.ToLower(strings.TrimSpace(req.AlertProvider))
@@ -121,7 +135,7 @@ func normalizeAndValidateSettingsRequest(req *config.AppSettings) error {
 	req.Elasticsearch.APIKey = strings.TrimSpace(req.Elasticsearch.APIKey)
 	req.Elasticsearch.Username = strings.TrimSpace(req.Elasticsearch.Username)
 	req.Elasticsearch.Password = strings.TrimSpace(req.Elasticsearch.Password)
-	req.Elasticsearch.Index = strings.TrimSpace(req.Elasticsearch.Index)
+	req.Elasticsearch.Index = config.ElasticsearchDataStream(req.Elasticsearch.Index)
 
 	method, ok := normalizeWebhookMethod(req.Webhook.Method)
 	if !ok {
@@ -164,13 +178,44 @@ func normalizeAndValidateSettingsRequest(req *config.AppSettings) error {
 			return err
 		}
 	}
-	if req.Elasticsearch.Index != "" {
-		if err := integrations.ValidateElasticsearchIndex(req.Elasticsearch.Index); err != nil {
-			return err
-		}
+	if err := integrations.ValidateElasticsearchDataStream(req.Elasticsearch.Index); err != nil {
+		return err
 	}
 
 	return validateAdvancedActionsSettings(&req.AdvancedActions)
+}
+
+// Trims and validates the values written into every server's jail.local [DEFAULT] section
+func normalizeJailDefaults(req *config.AppSettings) error {
+	ignore := make([]string, 0, len(req.IgnoreIPs))
+	for _, entry := range req.IgnoreIPs {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if err := shared.ValidateIgnoreIPEntry(entry); err != nil {
+			return withKey(err, "settings.errors.invalid_ignoreip")
+		}
+		ignore = append(ignore, entry)
+	}
+	req.IgnoreIPs = ignore
+	req.Banaction = strings.TrimSpace(req.Banaction)
+	req.BanactionAllports = strings.TrimSpace(req.BanactionAllports)
+	for _, name := range []string{req.Banaction, req.BanactionAllports} {
+		if name == "" {
+			continue
+		}
+		if err := shared.ValidateBanactionName(name); err != nil {
+			return withKey(err, "settings.errors.invalid_banaction")
+		}
+	}
+	req.Chain = strings.TrimSpace(req.Chain)
+	if req.Chain != "" {
+		if err := shared.ValidateChainName(req.Chain); err != nil {
+			return withKey(err, "settings.errors.invalid_chain")
+		}
+	}
+	return nil
 }
 
 func validateAdvancedActionsSettings(cfg *config.AdvancedActionsConfig) error {
@@ -178,6 +223,9 @@ func validateAdvancedActionsSettings(cfg *config.AdvancedActionsConfig) error {
 	cfg.PfSense.Alias = strings.TrimSpace(cfg.PfSense.Alias)
 	cfg.OPNsense.BaseURL = strings.TrimSpace(cfg.OPNsense.BaseURL)
 	cfg.OPNsense.Alias = strings.TrimSpace(cfg.OPNsense.Alias)
+	cfg.UniFi.BaseURL = strings.TrimSpace(cfg.UniFi.BaseURL)
+	cfg.UniFi.SiteName = strings.TrimSpace(cfg.UniFi.SiteName)
+	cfg.UniFi.TrafficListName = strings.TrimSpace(cfg.UniFi.TrafficListName)
 	cfg.Mikrotik.Host = strings.TrimSpace(cfg.Mikrotik.Host)
 	cfg.Mikrotik.AddressList = strings.TrimSpace(cfg.Mikrotik.AddressList)
 	cfg.Mikrotik.SSHKeyPath = strings.TrimSpace(cfg.Mikrotik.SSHKeyPath)
@@ -202,6 +250,21 @@ func validateAdvancedActionsSettings(cfg *config.AdvancedActionsConfig) error {
 	}
 	if cfg.OPNsense.Alias != "" {
 		if err := integrations.ValidateIdentifier(cfg.OPNsense.Alias, "OPNsense alias"); err != nil {
+			return err
+		}
+	}
+	if cfg.UniFi.BaseURL != "" {
+		if err := integrations.ValidateOutboundURL(cfg.UniFi.BaseURL, "UniFi base URL"); err != nil {
+			return err
+		}
+	}
+	if cfg.UniFi.SiteName != "" {
+		if err := integrations.ValidateIdentifier(cfg.UniFi.SiteName, "UniFi site name"); err != nil {
+			return err
+		}
+	}
+	if cfg.UniFi.TrafficListName != "" {
+		if err := integrations.ValidateIdentifier(cfg.UniFi.TrafficListName, "UniFi traffic matching list name"); err != nil {
 			return err
 		}
 	}
