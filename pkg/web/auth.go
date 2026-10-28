@@ -58,32 +58,30 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-func isPublicRoute(path string) bool {
-	// Session-less API endpoints are exact-match only. A prefix match here would
-	// incorrectly expose (and bypass the session for) longer paths that share a
-	// prefix, e.g. /api/ban must not match /api/banned.
-	publicAPIs := []string{
-		"/api/ban",
-		"/api/unban",
-		"/api/healthcheck/callback",
-	}
-	for _, route := range publicAPIs {
-		if path == route {
-			return true
-		}
-	}
+// Endpoints that bypass authentication, matched exactly.
+var publicExactRoutes = map[string]struct{}{
+	"/auth/login":               {},
+	"/auth/callback":            {},
+	"/auth/logout":              {},
+	"/auth/status":              {},
+	"/api/ban":                  {},
+	"/api/unban":                {},
+	"/api/healthcheck/callback": {},
+}
 
-	// Everything else is matched by path prefix (auth pages + static assets).
-	publicPrefixes := []string{
-		"/auth/login",
-		"/auth/callback",
-		"/auth/logout",
-		"/auth/status",
-		"/static/",
-		"/locales/",
+// Public asset trees, matched by prefix.
+var publicRoutePrefixes = []string{
+	"/static/",
+	"/locales/",
+}
+
+// Exact match for endpoints: a prefix would make /api/bans public via /api/ban.
+func isPublicRoute(path string) bool {
+	if _, ok := publicExactRoutes[path]; ok {
+		return true
 	}
-	for _, route := range publicPrefixes {
-		if strings.HasPrefix(path, route) {
+	for _, prefix := range publicRoutePrefixes {
+		if strings.HasPrefix(path, prefix) {
 			return true
 		}
 	}

@@ -40,6 +40,7 @@ var bannedPagingPageSize = 10;
 var bannedPagingSort = 'banTime';
 var bannedPagingOrder = 'desc';
 var BANNED_TABLE_PAGE_SIZE_OPTIONS = [5, 10, 25, 100];
+var manualBlockState = { expanded: false, jail: '', ip: '' };
 var translations = {};
 var sshKeysCache = null;
 var openModalCount = 0;

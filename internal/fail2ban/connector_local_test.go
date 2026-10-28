@@ -18,8 +18,12 @@ package fail2ban
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/swissmakers/fail2ban-ui/internal/shared"
 )
@@ -115,6 +119,38 @@ exit 255
 	}
 }
 
+func TestLocalValidateIncompleteTreeHint(t *testing.T) {
+	withFakeBinary(t, "fail2ban-client", `echo "2026-07-26 18:20:56,221 fail2ban.configreader   [18]: ERROR   Found no accessible config files for 'fail2ban' under /etc/fail2ban" >&2
+exit 255
+`)
+	lc := testLocalConnector(t)
+
+	err := lc.ValidateConfiguration(context.Background())
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !strings.Contains(err.Error(), "must contain the complete Fail2ban configuration") {
+		t.Fatalf("expected the incomplete-tree hint, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Found no accessible config files") {
+		t.Fatalf("validation errors must keep the daemon message, got: %v", err)
+	}
+}
+
+func TestLocalValidateMissingFilterIsNotAnIncompleteTree(t *testing.T) {
+	withFakeBinary(t, "fail2ban-client", `echo "2026-10-11 00:08:01,120 fail2ban.configreader   [18]: ERROR   Found no accessible config files for 'filter.d/does-not-exist' under /etc/fail2ban" >&2
+echo "2026-10-11 00:08:01,120 fail2ban.jailsreader    [18]: ERROR   Errors in jail 'example'." >&2
+exit 255
+`)
+	err := testLocalConnector(t).ValidateConfiguration(context.Background())
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if strings.Contains(err.Error(), "complete Fail2ban configuration") {
+		t.Fatalf("a missing filter must not be reported as an incomplete configuration tree: %v", err)
+	}
+}
+
 func TestLocalCommandErrorsAreNotLabelledSSH(t *testing.T) {
 	withFakeBinary(t, "fail2ban-client", `echo "boom" >&2
 exit 1
@@ -145,5 +181,101 @@ exit 255
 	}
 	if strings.Contains(err.Error(), "full configuration tree") {
 		t.Fatalf("mount hint must only fire for the config-visibility case, got: %v", err)
+	}
+}
+
+// Without -c, reload pushes the client's default /etc/fail2ban into whichever daemon the socket reaches.
+func TestLocalReloadLoadsTheServersOwnTree(t *testing.T) {
+	logFile := filepath.Join(t.TempDir(), "argv")
+	t.Setenv("F2BUI_TEST_ARGV", logFile)
+	withFakeBinary(t, "fail2ban-client", `printf '%s\n' "$*" >> "$F2BUI_TEST_ARGV"; echo OK`)
+	lc := &LocalConnector{server: shared.Fail2banServer{
+		Name:       "secondary",
+		SocketPath: "/var/run/fail2ban-secondary/fail2ban.sock",
+		ConfigPath: "/etc/fail2ban-secondary",
+	}}
+	if err := lc.Reload(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "-s /var/run/fail2ban-secondary/fail2ban.sock -c /etc/fail2ban-secondary reload"
+	if strings.TrimSpace(string(got)) != want {
+		t.Fatalf("reload argv = %q, want %q", strings.TrimSpace(string(got)), want)
+	}
+}
+
+func TestDeleteLocalConfigFilesRemovesBackups(t *testing.T) {
+	root := t.TempDir()
+	dir := FilterDir(root)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"apache.local", "apache.local.f2bui.bak", "apache.conf", "apache.conf.f2bui.bak", "other.local.f2bui.bak"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := deleteLocalConfigFiles(filterKind, "apache", root); err != nil {
+		t.Fatalf("deleteLocalConfigFiles: %v", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var left []string
+	for _, e := range entries {
+		left = append(left, e.Name())
+	}
+	if strings.Join(left, ",") != "other.local.f2bui.bak" {
+		t.Fatalf("left in filter.d: %v, want only the other filter's backup", left)
+	}
+}
+
+const testSocketMissing = `echo "2026-10-10 12:09:34,196 fail2ban [283120]: ERROR   Failed to access socket path: /var/run/fail2ban/fail2ban.sock. Is fail2ban running?" >&2
+exit 255
+`
+
+func TestLocalRestartWaitsForFail2banSocket(t *testing.T) {
+	withFakeBinary(t, "systemctl", "exit 0\n")
+	started := filepath.Join(t.TempDir(), "started")
+	withFakeBinary(t, "fail2ban-client", `if [ ! -e "`+started+`" ]; then
+  touch "`+started+`"
+`+testSocketMissing+`fi
+echo "Server replied: pong"
+`)
+	mode, err := testLocalConnector(t).Restart(context.Background())
+	if err != nil || mode != "restart" {
+		t.Fatalf("restart must wait for the socket instead of failing on the first ping: mode=%q err=%v", mode, err)
+	}
+}
+
+func TestLocalRestartReportsUnresponsiveDaemon(t *testing.T) {
+	withFakeBinary(t, "systemctl", "exit 0\n")
+	withFakeBinary(t, "fail2ban-client", testSocketMissing)
+	ctx, cancel := context.WithTimeout(context.Background(), 700*time.Millisecond)
+	defer cancel()
+
+	_, err := testLocalConnector(t).Restart(ctx)
+	if !errors.Is(err, ErrRestartNotResponding) {
+		t.Fatalf("an accepted restart without a reply must be reported as not responding, got: %v", err)
+	}
+}
+
+func TestWaitForFail2banGivesUpAtDeadline(t *testing.T) {
+	calls := 0
+	run := func(context.Context, ...string) (string, error) {
+		calls++
+		return "", errors.New("socket missing")
+	}
+	start := time.Now()
+	err := waitForFail2ban(context.Background(), run, "fail2ban", 600*time.Millisecond)
+	if err == nil || !strings.Contains(err.Error(), "socket missing") {
+		t.Fatalf("expected the last ping error, got: %v", err)
+	}
+	if calls < 2 || time.Since(start) > 2*time.Second {
+		t.Fatalf("expected a few retries within the deadline: calls=%d elapsed=%s", calls, time.Since(start))
 	}
 }
