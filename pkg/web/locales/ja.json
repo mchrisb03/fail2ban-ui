@@ -813,7 +813,6 @@
   "dashboard.status.connection_lost": "サーバーが応答していません。最後に受信したデータを表示しています。",
   "dashboard.status.unavailable": "サーバーの状態を読み込めません。サーバーとの接続を確認してください。",
   "dashboard.status.loading": "サーバーの状態を読み込み中…",
-  "dashboard.banned.unavailable": "ブロック中のIPアドレスはまだ取得できていません。",
   "modal.jails_unavailable": "Jailを読み込めません。サーバーとの接続を確認してください。",
   "modal.loading_jails": "Jailを読み込み中…",
   "jails.manage.enabling": "有効化中…",

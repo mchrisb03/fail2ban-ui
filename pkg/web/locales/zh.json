@@ -813,7 +813,6 @@
   "dashboard.status.connection_lost": "服务器未响应。正在显示最近收到的数据。",
   "dashboard.status.unavailable": "无法加载服务器状态。请检查服务器连接。",
   "dashboard.status.loading": "正在加载服务器状态…",
-  "dashboard.banned.unavailable": "暂时无法获取已封禁 IP。",
   "modal.jails_unavailable": "无法加载 jail。请检查服务器连接。",
   "modal.loading_jails": "正在加载 jail…",
   "jails.manage.enabling": "正在启用…",

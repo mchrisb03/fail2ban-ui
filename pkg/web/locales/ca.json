@@ -813,7 +813,6 @@
   "dashboard.status.connection_lost": "El servidor no respon. Es mostren les últimes dades rebudes.",
   "dashboard.status.unavailable": "No es pot carregar l’estat del servidor. Comprova la connexió amb el servidor.",
   "dashboard.status.loading": "Carregant l’estat del servidor…",
-  "dashboard.banned.unavailable": "Les IP bloquejades encara no estan disponibles.",
   "modal.jails_unavailable": "No es poden carregar les jails. Comprova la connexió amb el servidor.",
   "modal.loading_jails": "Carregant les jails…",
   "jails.manage.enabling": "Activant…",

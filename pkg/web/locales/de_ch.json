@@ -813,7 +813,6 @@
   "dashboard.status.connection_lost": "Dr Server git kei Antwort. D zletscht empfangene Date wärde aazeigt.",
   "dashboard.status.unavailable": "Dr Serverstatus cha nid glade wärde. Prüef d Verbindig zum Server.",
   "dashboard.status.loading": "Serverstatus wird glade…",
-  "dashboard.banned.unavailable": "G sperrte IPs sind no nid verfüegbar.",
   "modal.jails_unavailable": "D Jails chöi nid glade wärde. Prüef d Verbindig zum Server.",
   "modal.loading_jails": "Jails wärde glade…",
   "jails.manage.enabling": "Wird aktiviert…",

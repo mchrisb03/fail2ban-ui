@@ -107,15 +107,8 @@ test('a temporary unavailable response retains an earlier confirmed snapshot', a
   assert.equal(h.context.latestSummary.stale, true);
 });
 
-test('a newly confirmed snapshot invalidates expanded IP pages after missed callbacks', async () => {
-  const h = harness();
-  h.context.latestSummary = snapshot('a');
-  h.context.jailBannedState = { sshd: { ips: ['192.0.2.1'] } };
-  const pending = h.context.fetchSummaryData();
-  h.requests[0].resolve(snapshot('a', { observedAt: '2026-10-06T10:10:00Z', jails: [] }));
-  await pending;
-  assert.deepEqual(Object.keys(h.context.jailBannedState), []);
-});
+// (upstream test removed: per-jail banned-cell pages were not adopted in this fork;
+//  the fork renders banned IPs in a single flat paginated table instead)
 
 test('new server data refreshes an open jail manager without repeated requests for unchanged data', () => {
   const h = harness();

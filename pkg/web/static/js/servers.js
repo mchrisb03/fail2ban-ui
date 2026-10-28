@@ -558,9 +558,6 @@ function setCurrentServer(serverId) {
   bannedPagingPage = 1;
   bannedPagingSort = 'banTime';
   bannedPagingOrder = 'desc';
-  latestSummary = null;
-  latestSummaryServerId = null;
-  jailBannedState = {};
   latestSummary = typeof summariesByServer !== 'undefined' && summariesByServer[currentServerId] || null;
   latestSummaryServerId = currentServerId;
   latestSummaryError = latestSummary && latestSummary.staleReason || null;
