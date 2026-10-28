@@ -156,6 +156,12 @@ logpath  = /var/log/httpd/*access_log
 
 This will then extend the ignoreip-list for that jail only instead of the global ignoreip list. Check the effective list per jail with `fail2ban-client get <jail> ignoreip`.
 
+### Per-jail ignore entries via the UI (Allowed IP Management)
+
+Besides the manual `ignoreip_extra` hook above, the dashboard offers **Allowed IP Management** (enabled by default, `JAIL_ALLOWED_IP_MANAGEMENT_ENABLED`). Entries added there for a single jail are written to that jail's configuration section as `ignoreip = %(known/ignoreip)s <address>`, which inherits the global list from the managed `jail.local` and appends the jail-specific addresses on top. Global entries added through the same UI section are stored in the managed `jail.local` `ignoreip` like Settings does.
+
+The two mechanisms are complementary and can be combined: the UI list lives in the jail's own config section, while `ignoreip_extra` in a hand-written `jail.d/*.local` extends it from outside. Fail2Ban concatenates both into the effective per-jail list shown by `fail2ban-client get <jail> ignoreip`.
+
 ## Alert settings (UI-managed)
 
 Configure under **Settings -> Alert Settings**:
