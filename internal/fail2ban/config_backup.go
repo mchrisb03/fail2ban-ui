@@ -279,7 +279,7 @@ func (lc *LocalConnector) DeleteConfigurationBackup(ctx context.Context, id stri
 // SSH disconnects do not leave a partially transferred backup treated as valid
 const remoteConfigBackupScript = `import os,sys,json,base64,stat,tempfile
 root,ident,mode=sys.argv[1:]
-if not ident or len(ident)>100 or any(not(c.isascii() and (c.isalnum() or c in '_-')) for c in ident): raise ValueError('invalid backup id')
+if not ident or len(ident)>100 or any(not(ord(c) < 128 and (c.isalnum() or c in '_-')) for c in ident): raise ValueError('invalid backup id')
 store=os.path.join(root,'.fail2ban-ui-operations','backups')
 for d in (os.path.dirname(store),store):
  if os.path.lexists(d) and (os.path.islink(d) or not os.path.isdir(d)): raise ValueError('unsafe backup directory')
